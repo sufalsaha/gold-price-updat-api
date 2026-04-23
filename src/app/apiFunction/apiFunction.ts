@@ -1,13 +1,8 @@
-"use server";
-
-import { updateProductPrice } from "@/app/apiFunction/apiFunction";
 
 
 
-
-
-export async function ProcessUpdate() {
-    const token = process.env.X_SHOPIFY_ACCESS_TOKEN;
+export async function ProductPriceManeFunction(){
+      const token = process.env.X_SHOPIFY_ACCESS_TOKEN;
 
   const myHeaders = new Headers();
   myHeaders.append("accept", "*/*");
@@ -51,7 +46,7 @@ export async function ProcessUpdate() {
 
   const goldPriceOneGram = goldPrice / 31.1035;
 
-  console.log("oneEremGOld", goldPriceOneGram);
+  // console.log("oneEremGOld", goldPriceOneGram);
 
   const productsHeaders = new Headers();
   productsHeaders.append("X-Shopify-Access-Token", token as string);
@@ -82,7 +77,94 @@ export async function ProcessUpdate() {
 
   // updateProductPrice(9252590158057, 188888);
 
-  console.log(goldProductAndVarientIds);
+  // console.log(goldProductAndVarientIds);
 
 //   return Response.json({ success: true });
+}
+
+
+
+
+
+
+
+
+
+
+
+export async function updateProductPrice(
+  Id: { productId: number; variantId: number },
+  newPrice: number,
+) {
+  const token = process.env.X_SHOPIFY_ACCESS_TOKEN;
+
+  const productId = Id.productId;
+  const variantId = Id.variantId;
+  // const producturl = `https://di0we0-yd.myshopify.com/admin/api/2024-01/products/${productId}.json`;
+  const metafieldsurl = `https://di0we0-yd.myshopify.com/admin/api/2024-01/products/${productId}/metafields.json`;
+
+  const metafieldsfetch = await fetch(metafieldsurl, {
+    method: "GET",
+    headers: {
+      "X-Shopify-Access-Token": token as string,
+    },
+  });
+
+  const metafieldsdata = await metafieldsfetch.json();
+
+  const metafieldsMakingCharge = metafieldsdata.metafields.find(
+    (m: any) => m.key === "making_charge",
+  )?.value;
+
+  const goldWeight = +metafieldsdata.metafields.find(
+    (m: any) => m.key === "gold_weight",
+  )?.value;
+
+  // % change = ((New - Old) / Old) × 100
+
+  const goldPriceparsentChange = ((newPrice - 561.54) / 561.54) * 100;
+
+  const rowGoldPrice = newPrice * goldWeight;
+
+// console.log(metafieldsMakingCharge);
+
+let makingCharge = 0;
+
+if(!metafieldsMakingCharge ){
+   makingCharge = rowGoldPrice * 0.70;
+}else{
+   makingCharge = (+metafieldsMakingCharge + (+metafieldsMakingCharge * goldPriceparsentChange) / 100);
+}
+
+
+console.log(makingCharge);
+
+
+
+  const newTotalPrice = +(
+    rowGoldPrice + makingCharge
+    
+  ).toFixed(2);
+
+  // console.log(newTotalPrice);
+
+  const res = await fetch(
+    `https://di0we0-yd.myshopify.com/admin/api/2024-01/variants/${variantId}.json`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": token as string,
+      },
+      body: JSON.stringify({
+        variant: {
+          price: newTotalPrice,
+        },
+      }),
+    },
+  );
+
+  const data = await res.json();
+  return data;
+  // return metafieldsdata;
 }
