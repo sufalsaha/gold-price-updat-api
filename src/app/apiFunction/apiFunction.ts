@@ -1,3 +1,21 @@
+async function shopifyFetch(
+  url: string,
+  options: RequestInit,
+  maxRetries = 5,
+): Promise<Response> {
+  let res = await fetch(url, options);
+  let attempts = 0;
+  while (res.status === 429 && attempts < maxRetries) {
+    const retryAfterSeconds = Number(res.headers.get("Retry-After")) || 2;
+    await new Promise((resolve) =>
+      setTimeout(resolve, retryAfterSeconds * 1000),
+    );
+    res = await fetch(url, options);
+    attempts++;
+  }
+  return res;
+}
+
 export async function ProductPriceManeFunction() {
   const token = process.env.X_SHOPIFY_ACCESS_TOKEN;
 
@@ -54,7 +72,7 @@ export async function ProductPriceManeFunction() {
   const productsHeaders = new Headers();
   productsHeaders.append("X-Shopify-Access-Token", token as string);
 
-  const products = await fetch(
+  const products = await shopifyFetch(
     "https://di0we0-yd.myshopify.com/admin/api/2024-01/products.json?limit=250",
     {
       headers: productsHeaders,
@@ -96,7 +114,7 @@ export async function updateProductPrice(
   // const producturl = `https://di0we0-yd.myshopify.com/admin/api/2024-01/products/${productId}.json`;
   const metafieldsurl = `https://di0we0-yd.myshopify.com/admin/api/2024-01/products/${productId}/metafields.json`;
 
-  const metafieldsfetch = await fetch(metafieldsurl, {
+  const metafieldsfetch = await shopifyFetch(metafieldsurl, {
     method: "GET",
     headers: {
       "X-Shopify-Access-Token": token as string,
@@ -145,7 +163,7 @@ export async function updateProductPrice(
 
   console.log(newTotalPrice);
 
-  const res = await fetch(
+  const res = await shopifyFetch(
     `https://di0we0-yd.myshopify.com/admin/api/2024-01/variants/${variantId}.json`,
     {
       method: "PUT",
